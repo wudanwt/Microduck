@@ -63,6 +63,10 @@ const localTranslations = [
     "Penalty for repeatedly reversing the lifted right foot up and down",
     "惩罚：右脚反复上下换向",
   ],
+  [
+    "Penalty for drifting away from the 8 cm right-foot hover height",
+    "惩罚：右脚偏离 8 cm 悬停高度",
+  ],
 ];
 for (const [en, zh] of localTranslations) {
   const key = JSON.stringify(en);
