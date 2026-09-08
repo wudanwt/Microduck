@@ -9,8 +9,8 @@ type Lang = "zh-CN" | "en";
 /**
  * Chinese overlay for the upstream Microduck Lab viewer.
  *
- * Keep policy/run/file names and technical units untouched.  We translate
- * human-facing UI copy only.  The upstream React UI frequently splits one
+ * Keep policy/run/file names and technical units untouched. We translate
+ * human-facing UI copy only. The upstream React UI frequently splits one
  * sentence into several text nodes around dynamic values, so this table
  * intentionally contains BOTH complete sentences and fragments.
  */
@@ -276,7 +276,7 @@ const exact: Record<string, string> = {
   "Big points for holding the body ~3.5 cm lower than standing": "高额奖励：身体保持在比站立低约 3.5 cm 的高度",
   "Big points for the body near the deep-squat height": "高额奖励：身体接近深蹲目标高度",
   "Points for yaw speed (capped — no points for violence)": "奖励：原地旋转速度（有上限，不鼓励暴力甩动）",
-  "Points for lifting the feet to step around (no skid-steering)": "奖励：旋转时抬脚迈步，而不是双脚在地面硬磨",
+  "Points for lifting the feet to step around (no skid-steering)": "奖励：转身时抬脚迈步，避免贴地打滑",
   "Big points for matching the commanded body-frame speed": "高额奖励：实际速度跟上目标速度",
   "Points for matching the commanded yaw rate": "奖励：转向速度跟上目标指令",
   "Points each step a foot is in a running-length flight": "奖励：跑步时脚有合适的腾空时间",
@@ -287,7 +287,6 @@ const exact: Record<string, string> = {
   "Points for squaring the body up to the ball": "奖励：身体正面对准小球",
   "While the ball is lost: points for looking somewhere new": "球丢失时奖励：继续扫描新的方向",
   "While the ball is lost: points for turning the body the way it went": "球丢失时奖励：身体朝球最后出现的方向转动",
-  "Points for lifting the feet to step around (no skid-steering)": "奖励：转身时抬脚迈步，避免贴地打滑",
   "Penalty for cranking joints to their end stops": "惩罚：关节长时间顶在机械限位",
   "Penalty for shuddering motor forces": "惩罚：电机输出快速抖动",
   "Penalty for slamming down hard": "惩罚：落地冲击过大",
