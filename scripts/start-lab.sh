@@ -12,6 +12,9 @@ if [ ! -f "$REFERENCE" ]; then
   exit 1
 fi
 
+echo "🦩 Applying one-leg stability reward"
+bash "$ROOT/scripts/apply-one-leg-stability.sh"
+
 echo "🇨🇳 Applying Chinese viewer UI"
 bash "$ROOT/scripts/apply-zh-cn.sh"
 
