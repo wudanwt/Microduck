@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TARGET="$ROOT/microduck-lab/microduck_local/src/microduck_local/behaviors/poses.py"
+LOCAL="$ROOT/microduck-lab/microduck_local"
+TARGET="$LOCAL/src/microduck_local/behaviors/poses.py"
 
 if [ ! -f "$TARGET" ]; then
   echo "Microduck Lab behavior file not found: $TARGET" >&2
@@ -12,29 +13,25 @@ fi
 
 python3 - "$TARGET" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 path = Path(sys.argv[1])
 s = path.read_text()
 
-# Keep the upstream-friendly text aligned with the real target in core.py.
+# Keep the human-facing label aligned with the actual target in core.py.
 s = s.replace(
     'Points for holding the right foot ~5 cm off the ground',
     'Points for holding the right foot ~8 cm off the ground',
-    1,
 )
 
 # ---------------------------------------------------------------------------
-# 1) Positive reward: height near 8 cm AND low absolute vertical velocity.
-#    This helped reduce the original large pumping motion, but a slow periodic
-#    oscillation can still score reasonably well, so V2 adds a direct penalty
-#    below as well.
+# Helper 1: positive reward for a genuinely quiet hover near 8 cm.
 # ---------------------------------------------------------------------------
 if "def _right_foot_stable_hover(env)" not in s:
     helper = r'''
-# MICRODUCK_USER_ONE_LEG_STABILITY_V2
-# User overlay: reward a TRUE static hover of the lifted right foot instead of
-# merely rewarding that it passes through a broad height band.
+# MICRODUCK_USER_ONE_LEG_STABILITY_V3
+# Positive reward: right foot near 8 cm AND moving slowly vertically.
 def _right_foot_stable_hover(env) -> float:
     if env.foot_contact_state["right"]:
         return 0.0
@@ -63,12 +60,10 @@ def _right_foot_stable_hover(env) -> float:
     s = s[:idx] + helper + s[idx:]
 
 # ---------------------------------------------------------------------------
-# 2) Direct penalty for periodic pumping AFTER the right foot is already up.
-#    Use right-vs-left RELATIVE vertical speed so a whole-body vertical balance
-#    correction is not mistaken for the lifted leg pumping by itself.
-#
-#    Below 5 cm: no penalty, so the policy is still free to lift the foot.
-#    Above 5 cm: |relative vz| ~= 0.04 m/s reaches the full -1 penalty.
+# Helper 2: direct penalty for lifted-foot vertical pumping.
+# Use right-vs-left relative vertical speed so whole-body vertical correction
+# is not mistaken for the right leg pumping by itself.
+# Below 5 cm there is no penalty, so the policy is free to perform the lift.
 # ---------------------------------------------------------------------------
 if "def _right_foot_vertical_motion_pen(env)" not in s:
     helper2 = r'''
@@ -80,6 +75,8 @@ def _right_foot_vertical_motion_pen(env) -> float:
     if h < 0.05:
         return 0.0
 
+    # Do NOT reuse one scratch buffer for both values without copying: the
+    # second mj_objectVelocity call overwrites it.
     v6 = _v6_buf(env)
     mujoco.mj_objectVelocity(
         env.model,
@@ -112,40 +109,94 @@ def _right_foot_vertical_motion_pen(env) -> float:
     s = s[:idx] + helper2 + s[idx:]
 
 # ---------------------------------------------------------------------------
-# Inject the two terms into one_leg.  Idempotent on already-patched checkouts.
+# Structurally locate the one_leg Behavior block.  Do not depend on what an
+# older overlay happened to insert or how it was indented.
 # ---------------------------------------------------------------------------
-foot_line = 'RewardTerm("foot_in_air", "Points for holding the right foot ~8 cm off the ground", 1.5, _lift_up_L),'
-if foot_line not in s:
+one_start = s.find('id="one_leg"')
+if one_start < 0:
+    raise SystemExit("Could not locate one_leg behavior; upstream changed.")
+one_end = s.find('default_steps=', one_start)
+if one_end < 0:
+    raise SystemExit("Could not locate end of one_leg reward recipe; upstream changed.")
+
+prefix = s[:one_start]
+block = s[one_start:one_end]
+suffix = s[one_end:]
+
+foot_pat = re.compile(
+    r'(?P<indent>\s*)RewardTerm\("foot_in_air",\s*"Points for holding the right foot ~8 cm off the ground",\s*1\.5,\s*_lift_up_L\),'
+)
+m = foot_pat.search(block)
+if not m:
     raise SystemExit("Could not locate one_leg foot_in_air reward; upstream changed.")
+indent = m.group("indent")
 
-stable_block = '''RewardTerm(
-            "right_foot_stable_hover",
-            "Big points for holding the right foot steady near 8 cm",
-            2.0,
-            _right_foot_stable_hover,
-        ),'''
+stable_block = (
+    f'{indent}RewardTerm(\n'
+    f'{indent}    "right_foot_stable_hover",\n'
+    f'{indent}    "Big points for holding the right foot steady near 8 cm",\n'
+    f'{indent}    2.0,\n'
+    f'{indent}    _right_foot_stable_hover,\n'
+    f'{indent}),'
+)
 
-if '"right_foot_stable_hover",' not in s:
-    s = s.replace(foot_line, foot_line + "\n        " + stable_block, 1)
+if '"right_foot_stable_hover"' not in block:
+    insert_at = m.end()
+    block = block[:insert_at] + "\n" + stable_block + block[insert_at:]
 
-motion_block = '''RewardTerm(
-            "right_foot_vertical_motion",
-            "Penalty for moving the lifted right foot up and down after it is raised",
-            2.0,
-            _right_foot_vertical_motion_pen,
-            is_penalty=True,
-        ),'''
+# Re-find a stable insertion anchor after the positive term.  If an older V1
+# already inserted it with different formatting, just insert the penalty before
+# flat_stance_foot; that location is invariant in the one_leg recipe.
+if '"right_foot_vertical_motion"' not in block:
+    flat_match = re.search(
+        r'(?m)^(?P<indent>\s*)RewardTerm\("flat_stance_foot",',
+        block,
+    )
+    if not flat_match:
+        raise SystemExit("Could not locate one_leg flat_stance_foot reward; upstream changed.")
+    ind = flat_match.group("indent")
+    motion_block = (
+        f'{ind}RewardTerm(\n'
+        f'{ind}    "right_foot_vertical_motion",\n'
+        f'{ind}    "Penalty for moving the lifted right foot up and down after it is raised",\n'
+        f'{ind}    2.0,\n'
+        f'{ind}    _right_foot_vertical_motion_pen,\n'
+        f'{ind}    is_penalty=True,\n'
+        f'{ind}),\n'
+    )
+    insert_at = flat_match.start()
+    block = block[:insert_at] + motion_block + block[insert_at:]
 
-if '"right_foot_vertical_motion",' not in s:
-    # Put the direct penalty immediately after the stable-hover reward so the
-    # two user-added controls stay next to each other in the recipe source.
-    if stable_block not in s:
-        raise SystemExit("Could not locate stable-hover reward block for V2 migration.")
-    s = s.replace(stable_block, stable_block + "\n        " + motion_block, 1)
-
+s = prefix + block + suffix
 path.write_text(s)
-print("✓ one_leg stability V2 rewards applied")
-print("  reward : right_foot_stable_hover (default weight 2.0)")
-print("  penalty: right_foot_vertical_motion (default weight 2.0)")
-print("  motion penalty activates after ~5 cm lift; full around 0.04 m/s relative vertical speed")
+
+# Text-level verification before Python imports anything heavy.
+one_start = s.find('id="one_leg"')
+one_end = s.find('default_steps=', one_start)
+one = s[one_start:one_end]
+missing = [
+    key for key in ("right_foot_stable_hover", "right_foot_vertical_motion")
+    if f'"{key}"' not in one
+]
+if missing:
+    raise SystemExit("one_leg overlay verification failed; missing: " + ", ".join(missing))
+
+print("✓ one_leg stability V3 source patch verified")
+print("  reward : right_foot_stable_hover (default 2.0)")
+print("  penalty: right_foot_vertical_motion (default 2.0)")
 PY
+
+# Runtime verification using the same uv environment the lab will launch with.
+# This catches import/reload issues that a text-only check cannot.
+(
+  cd "$LOCAL"
+  uv run python - <<'PY'
+from microduck_local.behaviors import BEHAVIORS
+keys = [t.key for t in BEHAVIORS["one_leg"].terms]
+required = ["right_foot_stable_hover", "right_foot_vertical_motion"]
+missing = [k for k in required if k not in keys]
+if missing:
+    raise SystemExit("one_leg runtime verification failed; missing: " + ", ".join(missing))
+print("✓ one_leg runtime rewards:", ", ".join(k for k in keys if k.startswith("right_foot_")))
+PY
+)
