@@ -75,6 +75,9 @@ fi
 echo "→ installing browser viewer dependencies"
 (cd "$ROOT/microduck-lab/duck-viewer" && npm install --no-audit --no-fund)
 
+echo "→ applying Chinese viewer UI"
+bash "$ROOT/scripts/apply-zh-cn.sh"
+
 echo "→ running contract smoke tests"
 (cd "$ROOT/microduck-lab/microduck_local" && \
   uv run --with pytest pytest \
@@ -86,6 +89,7 @@ echo "→ running contract smoke tests"
 cat <<'MSG'
 
 ✅ Microduck Mac workspace is ready.
+✅ Viewer defaults to Chinese; use the top-right EN / 中文 button to switch.
 
 Next:
   ./scripts/train-first.sh
