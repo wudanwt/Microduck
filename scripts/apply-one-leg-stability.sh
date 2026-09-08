@@ -75,8 +75,6 @@ def _right_foot_vertical_motion_pen(env) -> float:
     if h < 0.05:
         return 0.0
 
-    # Do NOT reuse one scratch buffer for both values without copying: the
-    # second mj_objectVelocity call overwrites it.
     v6 = _v6_buf(env)
     mujoco.mj_objectVelocity(
         env.model,
@@ -88,6 +86,8 @@ def _right_foot_vertical_motion_pen(env) -> float:
     )
     right_vz = float(v6[5])
 
+    # The scratch buffer is overwritten by each call, but right_vz is already
+    # copied to a Python float before the second query.
     mujoco.mj_objectVelocity(
         env.model,
         env.data,
@@ -109,8 +109,8 @@ def _right_foot_vertical_motion_pen(env) -> float:
     s = s[:idx] + helper2 + s[idx:]
 
 # ---------------------------------------------------------------------------
-# Structurally locate the one_leg Behavior block.  Do not depend on what an
-# older overlay happened to insert or how it was indented.
+# Structurally locate the one_leg Behavior block. Do not depend on an older
+# overlay's formatting or insertion order.
 # ---------------------------------------------------------------------------
 one_start = s.find('id="one_leg"')
 if one_start < 0:
@@ -124,7 +124,9 @@ block = s[one_start:one_end]
 suffix = s[one_end:]
 
 foot_pat = re.compile(
-    r'(?P<indent>\s*)RewardTerm\("foot_in_air",\s*"Points for holding the right foot ~8 cm off the ground",\s*1\.5,\s*_lift_up_L\),'
+    r'(?m)^(?P<indent>[ \t]*)RewardTerm\("foot_in_air",\s*'
+    r'"Points for holding the right foot ~8 cm off the ground",\s*'
+    r'1\.5,\s*_lift_up_L\),'
 )
 m = foot_pat.search(block)
 if not m:
@@ -144,12 +146,12 @@ if '"right_foot_stable_hover"' not in block:
     insert_at = m.end()
     block = block[:insert_at] + "\n" + stable_block + block[insert_at:]
 
-# Re-find a stable insertion anchor after the positive term.  If an older V1
-# already inserted it with different formatting, just insert the penalty before
-# flat_stance_foot; that location is invariant in the one_leg recipe.
+# Insert the penalty before flat_stance_foot. That anchor exists in every
+# supported one_leg recipe and does not depend on how V1 formatted the custom
+# stable-hover block.
 if '"right_foot_vertical_motion"' not in block:
     flat_match = re.search(
-        r'(?m)^(?P<indent>\s*)RewardTerm\("flat_stance_foot",',
+        r'(?m)^(?P<indent>[ \t]*)RewardTerm\("flat_stance_foot",',
         block,
     )
     if not flat_match:
@@ -187,7 +189,6 @@ print("  penalty: right_foot_vertical_motion (default 2.0)")
 PY
 
 # Runtime verification using the same uv environment the lab will launch with.
-# This catches import/reload issues that a text-only check cannot.
 (
   cd "$LOCAL"
   uv run python - <<'PY'
