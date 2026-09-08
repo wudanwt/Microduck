@@ -42,8 +42,6 @@ s = s.replace(
   'function applyLanguage(root: Node, lang: Lang) {'
 );
 
-// Local one-leg stability experiment. Inject missing exact-string mappings
-// individually so future V2/V3 reward additions remain idempotent.
 const anchor = 'const exact: Record<string, string> = {';
 if (!s.includes(anchor)) {
   throw new Error("Could not locate ChineseUI exact-string table.");
@@ -60,6 +58,10 @@ const localTranslations = [
   [
     "Penalty for moving the lifted right foot up and down after it is raised",
     "惩罚：右脚抬起后继续上下运动",
+  ],
+  [
+    "Penalty for repeatedly reversing the lifted right foot up and down",
+    "惩罚：右脚反复上下换向",
   ],
 ];
 for (const [en, zh] of localTranslations) {
