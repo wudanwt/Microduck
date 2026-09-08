@@ -25,6 +25,26 @@ fi
 
 cp "$OVERLAY" "$TARGET"
 
+# Keep the overlay resilient while it lives outside the upstream submodule:
+# fix two small implementation details at apply time so switching back to EN
+# restores the original React text and TypeScript sees createTreeWalker's root
+# as a DOM Node. These replacements are idempotent and harmless once the
+# overlay source itself already contains the fixed forms.
+node - "$TARGET" <<'NODE'
+const fs = require("fs");
+const path = process.argv[2];
+let s = fs.readFileSync(path, "utf8");
+s = s.replace(
+  '} else if (lang === "en" && current !== original) {\n      original = current;',
+  '} else if (lang === "en" && current !== original && current !== expected) {\n      original = current;'
+);
+s = s.replace(
+  'function applyLanguage(root: ParentNode, lang: Lang) {',
+  'function applyLanguage(root: Node, lang: Lang) {'
+);
+fs.writeFileSync(path, s);
+NODE
+
 node - "$LAYOUT" <<'NODE'
 const fs = require("fs");
 const path = process.argv[2];
