@@ -27,7 +27,7 @@ cp "$OVERLAY" "$TARGET"
 
 # Keep the overlay resilient while it lives outside the upstream submodule:
 # fix small implementation details and add translations for local behavior
-# overlays at apply time.  This lets user-specific reward experiments live in
+# overlays at apply time. This lets user-specific reward experiments live in
 # the superproject without permanently forking the upstream viewer.
 node - "$TARGET" <<'NODE'
 const fs = require("fs");
@@ -42,15 +42,32 @@ s = s.replace(
   'function applyLanguage(root: Node, lang: Lang) {'
 );
 
-// Local one-leg stability experiment.  Inject into the exact-string table so
-// EN mode still shows the original English while zh-CN gets a proper label.
-if (!s.includes('"Big points for holding the right foot steady near 8 cm"')) {
-  const anchor = 'const exact: Record<string, string> = {';
-  if (!s.includes(anchor)) {
-    throw new Error("Could not locate ChineseUI exact-string table.");
+// Local one-leg stability experiment. Inject missing exact-string mappings
+// individually so future V2/V3 reward additions remain idempotent.
+const anchor = 'const exact: Record<string, string> = {';
+if (!s.includes(anchor)) {
+  throw new Error("Could not locate ChineseUI exact-string table.");
+}
+const localTranslations = [
+  [
+    "Points for holding the right foot ~8 cm off the ground",
+    "奖励：右脚保持离地约 8 cm",
+  ],
+  [
+    "Big points for holding the right foot steady near 8 cm",
+    "高额奖励：右脚在约 8 cm 高度稳定悬停",
+  ],
+  [
+    "Penalty for moving the lifted right foot up and down after it is raised",
+    "惩罚：右脚抬起后继续上下运动",
+  ],
+];
+for (const [en, zh] of localTranslations) {
+  const key = JSON.stringify(en);
+  if (!s.includes(key)) {
+    const entry = `\n  ${key}: ${JSON.stringify(zh)},`;
+    s = s.replace(anchor, anchor + entry);
   }
-  const extra = `\n  "Points for holding the right foot ~8 cm off the ground": "奖励：右脚保持离地约 8 cm",\n  "Big points for holding the right foot steady near 8 cm": "高额奖励：右脚在约 8 cm 高度稳定悬停",`;
-  s = s.replace(anchor, anchor + extra);
 }
 
 fs.writeFileSync(path, s);
