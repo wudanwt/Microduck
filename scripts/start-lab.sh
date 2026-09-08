@@ -12,6 +12,9 @@ if [ ! -f "$REFERENCE" ]; then
   exit 1
 fi
 
+echo "🇨🇳 Applying Chinese viewer UI"
+bash "$ROOT/scripts/apply-zh-cn.sh"
+
 args=("$REFERENCE")
 if [ -d "$RUN_DIR" ]; then
   args=("$RUN_DIR" "$REFERENCE")
@@ -30,5 +33,6 @@ sleep 2
 
 echo "🦆 Starting browser viewer"
 echo "Open the URL printed by Next.js. Ctrl+C stops both processes."
+echo "Viewer defaults to Chinese; use the top-right EN / 中文 button to switch."
 cd "$VIEWER"
 npm run dev
