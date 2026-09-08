@@ -15,6 +15,9 @@ fi
 echo "🦩 Applying one-leg stability reward"
 bash "$ROOT/scripts/apply-one-leg-stability.sh"
 
+echo "🎯 Applying Teach fine-tune learning-rate control"
+bash "$ROOT/scripts/apply-finetune-lr.sh"
+
 echo "🇨🇳 Applying Chinese viewer UI"
 bash "$ROOT/scripts/apply-zh-cn.sh"
 
