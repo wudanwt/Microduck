@@ -26,10 +26,9 @@ fi
 cp "$OVERLAY" "$TARGET"
 
 # Keep the overlay resilient while it lives outside the upstream submodule:
-# fix two small implementation details at apply time so switching back to EN
-# restores the original React text and TypeScript sees createTreeWalker's root
-# as a DOM Node. These replacements are idempotent and harmless once the
-# overlay source itself already contains the fixed forms.
+# fix small implementation details and add translations for local behavior
+# overlays at apply time.  This lets user-specific reward experiments live in
+# the superproject without permanently forking the upstream viewer.
 node - "$TARGET" <<'NODE'
 const fs = require("fs");
 const path = process.argv[2];
@@ -42,6 +41,18 @@ s = s.replace(
   'function applyLanguage(root: ParentNode, lang: Lang) {',
   'function applyLanguage(root: Node, lang: Lang) {'
 );
+
+// Local one-leg stability experiment.  Inject into the exact-string table so
+// EN mode still shows the original English while zh-CN gets a proper label.
+if (!s.includes('"Big points for holding the right foot steady near 8 cm"')) {
+  const anchor = 'const exact: Record<string, string> = {';
+  if (!s.includes(anchor)) {
+    throw new Error("Could not locate ChineseUI exact-string table.");
+  }
+  const extra = `\n  "Points for holding the right foot ~8 cm off the ground": "奖励：右脚保持离地约 8 cm",\n  "Big points for holding the right foot steady near 8 cm": "高额奖励：右脚在约 8 cm 高度稳定悬停",`;
+  s = s.replace(anchor, anchor + extra);
+}
+
 fs.writeFileSync(path, s);
 NODE
 
