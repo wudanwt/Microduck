@@ -1,0 +1,9 @@
+[submodule "microduck"]
+	path = microduck
+	url = https://github.com/pollen-robotics/microduck.git
+[submodule "microduck_rl"]
+	path = microduck_rl
+	url = https://github.com/pollen-robotics/microduck_rl.git
+[submodule "microduck-lab"]
+	path = microduck-lab
+	url = https://github.com/jonathanhawkins/microduck-lab.git
