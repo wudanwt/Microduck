@@ -47,6 +47,9 @@ bash "$ROOT/scripts/apply-one-leg-com-balance.sh"
 echo "🪜 Applying one-leg staged curriculum V3"
 bash "$ROOT/scripts/apply-one-leg-curriculum-v3.sh"
 
+echo "🦶 Applying right-foot unloading/contact-force shaping"
+bash "$ROOT/scripts/apply-one-leg-unload.sh"
+
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
 
