@@ -20,17 +20,24 @@ path = Path(sys.argv[1])
 s = path.read_text()
 
 # ---------------------------------------------------------------------------
-# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2
+# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V3
 #
-# V1 used the full XY distance between whole-robot COM and the left-foot
-# centre. That made harmless fore/aft offset compete with the thing a one-leg
-# balance actually needs most: shifting the body LATERALLY over the stance leg.
-# V2 keeps the same mass-weighted whole-robot COM, but scores only the lateral
-# component in the trunk heading frame. This is yaw-invariant and gives PPO a
-# direct gradient for "move the body over the left support leg".
+# V2 fixed the axis: it scores only the LATERAL COM offset from the left stance
+# foot.  The latest run showed the duck still ~4 cm off-target, where V2's two
+# relatively narrow Gaussians paid only ~0.06 raw.  That is too little shaping
+# signal for PPO to discover a structural body shift from an already-trained
+# policy.
+#
+# V3 keeps the same physically meaningful lateral target and +/-5 mm free band,
+# but adds a deliberately broad 6 cm pull plus medium/tight polish layers:
+#   - broad  6.0 cm : keeps a useful gradient alive 4-8 cm away
+#   - medium 2.5 cm : pulls decisively once the body enters the right region
+#   - tight  1.0 cm : rewards the final static alignment
+# This is the same wide-pull -> tight-polish principle used elsewhere in the
+# lab's mature reward recipes.
 # ---------------------------------------------------------------------------
-helper_v2 = r'''
-# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2
+helper_v3 = r'''
+# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V3
 def _com_over_left_stance_foot(env) -> float:
     # No meaningful support target when the stance foot itself is airborne.
     if not env.foot_contact_state["left"]:
@@ -58,47 +65,59 @@ def _com_over_left_stance_foot(env) -> float:
         return 0.0
     lateral_xy /= norm
 
-    # Only the sideways COM offset matters here; fore/aft displacement is left
-    # to the existing stance/body terms instead of being falsely taxed.
+    # Only sideways COM offset matters here; fore/aft displacement is handled
+    # by the existing stance/body terms.
     lateral_error = abs(float(np.dot(com_xy - foot_xy, lateral_xy)))
 
-    # Treat the central +/-5 mm as effectively "inside the support target".
-    # Outside it, blend a broad and a tight Gaussian so PPO still has useful
-    # gradient when the COM is 1-3 cm away, while strongly preferring a true
-    # settled stance. Approximate score after the free band:
-    #   10 mm total error -> ~0.87, 15 mm -> ~0.61,
-    #   20 mm -> ~0.40, 30 mm -> ~0.18.
+    # +/-5 mm is effectively centered over the stance foot.
     excess = max(lateral_error - 0.005, 0.0)
     if excess <= 0.0:
         return 1.0
-    broad = float(np.exp(-((excess / 0.025) ** 2)))
+
+    # Wide pull -> medium capture -> tight polish.
+    # Approximate scores vs TOTAL lateral error (including the 5 mm free band):
+    #   1.0 cm -> ~0.94
+    #   2.0 cm -> ~0.70
+    #   3.0 cm -> ~0.52
+    #   4.0 cm -> ~0.40
+    #   5.0 cm -> ~0.30
+    # so an already-trained policy several cm away still gets a strong gradient.
+    broad = float(np.exp(-((excess / 0.060) ** 2)))
+    medium = float(np.exp(-((excess / 0.025) ** 2)))
     tight = float(np.exp(-((excess / 0.010) ** 2)))
-    return 0.5 * broad + 0.5 * tight
+    return 0.50 * broad + 0.30 * medium + 0.20 * tight
 
 '''
 
-# Migrate an already-patched V1 checkout in place. V1's helper was inserted
-# immediately before the first behavior registration. Preserve all other user
-# reward overlays and keep the public reward key stable so existing runs can
-# continue fine-tuning without schema churn.
-if "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V1" in s:
+# Migrate an already-patched V1/V2 checkout in place. Preserve all other user
+# overlays and keep the public reward key stable so existing runs can continue
+# fine-tuning without schema churn.
+if "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2" in s:
+    pat = re.compile(
+        r'(?ms)^# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2\n'
+        r'def _com_over_left_stance_foot\(env\) -> float:\n.*?'
+        r'(?=^_register\(Behavior\()'
+    )
+    s, count = pat.subn(helper_v3, s, count=1)
+    if count != 1:
+        raise SystemExit("Could not migrate one-leg COM-balance V2 helper; local source changed.")
+elif "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V1" in s:
     pat = re.compile(
         r'(?ms)^# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V1\n'
         r'def _com_over_left_stance_foot\(env\) -> float:\n.*?'
         r'(?=^_register\(Behavior\()'
     )
-    s, count = pat.subn(helper_v2, s, count=1)
+    s, count = pat.subn(helper_v3, s, count=1)
     if count != 1:
         raise SystemExit("Could not migrate one-leg COM-balance V1 helper; local source changed.")
-elif "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2" not in s:
+elif "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V3" not in s:
     anchor = "_register(Behavior("
     idx = s.find(anchor)
     if idx < 0:
         raise SystemExit("Could not locate first behavior registration; upstream changed.")
-    s = s[:idx] + helper_v2 + s[idx:]
+    s = s[:idx] + helper_v3 + s[idx:]
 
-# Keep the existing reward key so old run recipes can load, but update the
-# friendly sentence to describe what V2 actually optimizes.
+# Keep the existing reward key and friendly sentence.
 s = s.replace(
     "Big points for keeping the body center of mass over the left stance foot",
     "Big points for shifting the body center of mass sideways over the left stance foot",
@@ -143,26 +162,29 @@ one_start = s.find('id="one_leg"')
 one_end = s.find('default_steps=', one_start)
 one = s[one_start:one_end]
 required = [
-    "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V2",
+    "# MICRODUCK_USER_ONE_LEG_COM_BALANCE_V3",
     "def _com_over_left_stance_foot(env)",
     '"com_over_stance_foot"',
     "body_mass[1:]",
     "xipos[1:, :2]",
     "xmat[env.trunk_body_id]",
     "lateral_error",
-    "0.005",
+    "excess / 0.060",
+    "excess / 0.025",
+    "excess / 0.010",
 ]
 missing = [x for x in required if x not in s and x != '"com_over_stance_foot"']
 if '"com_over_stance_foot"' not in one:
     missing.append('"com_over_stance_foot" in one_leg')
 if missing:
-    raise SystemExit("one_leg COM-balance V2 source verification failed: " + ", ".join(missing))
+    raise SystemExit("one_leg COM-balance V3 source verification failed: " + ", ".join(missing))
 
-print("✓ one_leg COM-balance V2 source patch verified")
+print("✓ one_leg COM-balance V3 source patch verified")
 print("  reward : com_over_stance_foot (same key; existing runs stay compatible)")
 print("  target : lateral whole-robot COM aligned over the left stance foot")
 print("  frame  : trunk local +Y projected to ground (yaw-invariant)")
-print("  shape  : ±5 mm free target, then broad 2.5 cm + tight 1.0 cm guidance")
+print("  shape  : ±5 mm target + 6.0 cm broad / 2.5 cm medium / 1.0 cm tight")
+print("  intent : keep useful learning gradient alive even 4-8 cm off target")
 PY
 
 # Runtime verification in the exact environment used by duck-lab.
@@ -175,7 +197,7 @@ from microduck_local.behaviors import poses
 
 keys = [t.key for t in BEHAVIORS["one_leg"].terms]
 if "com_over_stance_foot" not in keys:
-    raise SystemExit("one_leg COM-balance V2 runtime reward missing")
+    raise SystemExit("one_leg COM-balance V3 runtime reward missing")
 
 src = inspect.getsource(poses._com_over_left_stance_foot)
 for needle in (
@@ -183,11 +205,13 @@ for needle in (
     "xipos[1:, :2]",
     "xmat[env.trunk_body_id]",
     "lateral_error",
-    "0.005",
+    "0.060",
+    "0.025",
+    "0.010",
 ):
     if needle not in src:
-        raise SystemExit(f"one_leg COM-balance V2 runtime helper verification failed: {needle}")
+        raise SystemExit(f"one_leg COM-balance V3 runtime helper verification failed: {needle}")
 
-print("✓ one_leg COM-balance V2 runtime reward present")
+print("✓ one_leg COM-balance V3 runtime reward present")
 PY
 )
