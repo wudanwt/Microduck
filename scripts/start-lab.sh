@@ -50,6 +50,9 @@ bash "$ROOT/scripts/apply-one-leg-curriculum-v3.sh"
 echo "🦶 Applying right-foot unloading/contact-force shaping"
 bash "$ROOT/scripts/apply-one-leg-unload.sh"
 
+echo "🪄 Applying reverse-curriculum pre-lift spawns"
+bash "$ROOT/scripts/apply-one-leg-reverse-spawn.sh"
+
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
 
