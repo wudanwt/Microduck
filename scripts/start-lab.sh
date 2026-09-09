@@ -53,6 +53,9 @@ bash "$ROOT/scripts/apply-one-leg-unload.sh"
 echo "🪄 Applying reverse-curriculum pre-lift spawns"
 bash "$ROOT/scripts/apply-one-leg-reverse-spawn.sh"
 
+echo "🛟 Applying verified reverse-assist V2 training wheels"
+bash "$ROOT/scripts/apply-one-leg-reverse-assist-v2.sh"
+
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
 
