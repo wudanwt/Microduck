@@ -71,6 +71,10 @@ const localTranslations = [
     "Penalty for sustained oscillation of the lifted right foot over a short time window",
     "惩罚：右脚在短时间窗口内持续振荡",
   ],
+  [
+    "Big points for keeping the body center of mass over the left stance foot",
+    "高额奖励：身体重心投影保持在左支撑脚上方",
+  ],
 ];
 for (const [en, zh] of localTranslations) {
   const key = JSON.stringify(en);
