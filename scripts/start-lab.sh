@@ -56,8 +56,8 @@ bash "$ROOT/scripts/apply-one-leg-reverse-spawn.sh"
 echo "🛟 Applying verified reverse-assist V2 training wheels"
 bash "$ROOT/scripts/apply-one-leg-reverse-assist-v2.sh"
 
-echo "🚪 Applying late-stage right-foot liftoff gate"
-bash "$ROOT/scripts/apply-one-leg-liftoff-gate.sh"
+echo "🚪 Applying late-stage right-foot liftoff gate V3"
+bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v3.sh"
 
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
