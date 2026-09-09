@@ -67,6 +67,10 @@ const localTranslations = [
     "Penalty for drifting away from the 8 cm right-foot hover height",
     "惩罚：右脚偏离 8 cm 悬停高度",
   ],
+  [
+    "Penalty for sustained oscillation of the lifted right foot over a short time window",
+    "惩罚：右脚在短时间窗口内持续振荡",
+  ],
 ];
 for (const [en, zh] of localTranslations) {
   const key = JSON.stringify(en);
