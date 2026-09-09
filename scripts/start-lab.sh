@@ -6,14 +6,26 @@ LOCAL="$ROOT/microduck-lab/microduck_local"
 VIEWER="$ROOT/microduck-lab/duck-viewer"
 REFERENCE="$ROOT/microduck-lab/microduck/policies/alpha_walking.onnx"
 RUN_DIR="$LOCAL/runs/$RUN_NAME"
+POSES="$LOCAL/src/microduck_local/behaviors/poses.py"
 
 if [ ! -f "$REFERENCE" ]; then
   echo "Reference policy not found. Run: bash scripts/setup-mac.sh"
   exit 1
 fi
 
-echo "🦩 Applying one-leg stability rewards"
-bash "$ROOT/scripts/apply-one-leg-stability.sh"
+# The curriculum patch redirects the one_leg reward functions in poses.py.
+# On later launches the old stability installer must not insist on the original
+# foot_in_air source line; if all three stability terms are already present,
+# the desired code is already installed and we can safely skip that installer.
+if [ -f "$POSES" ] \
+  && grep -q '"right_foot_stable_hover"' "$POSES" \
+  && grep -q '"right_foot_vertical_motion"' "$POSES" \
+  && grep -q '"right_foot_direction_reversal"' "$POSES"; then
+  echo "🦩 One-leg stability rewards already installed; keeping curriculum-compatible functions"
+else
+  echo "🦩 Applying one-leg stability rewards"
+  bash "$ROOT/scripts/apply-one-leg-stability.sh"
+fi
 
 echo "📏 Applying one-leg hover-height penalty"
 bash "$ROOT/scripts/apply-one-leg-height-error.sh"
