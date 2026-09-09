@@ -13,6 +13,14 @@ if [ ! -f "$REFERENCE" ]; then
   exit 1
 fi
 
+# IMPORTANT: repair stale source corruption before ANY helper script performs a
+# runtime import of microduck_local.behaviors. Older curriculum V2 could leave
+# `_one_leg_stage_flat_support("left")` in the RewardTerm, which makes poses.py
+# fail at import time. This preflight is pure text surgery and therefore works
+# even while the Python module is currently un-importable.
+echo "🩹 Preflight: repairing stale one-leg source if needed"
+bash "$ROOT/scripts/repair-one-leg-source.sh"
+
 # The curriculum patch redirects the one_leg reward functions in poses.py.
 # On later launches the old stability installer must not insist on the original
 # foot_in_air source line; if all three stability terms are already present,
