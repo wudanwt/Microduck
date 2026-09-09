@@ -36,8 +36,8 @@ bash "$ROOT/scripts/apply-one-leg-oscillation.sh"
 echo "⚖️ Applying one-leg center-of-mass balance reward"
 bash "$ROOT/scripts/apply-one-leg-com-balance.sh"
 
-echo "🪜 Applying one-leg staged curriculum"
-bash "$ROOT/scripts/apply-one-leg-curriculum.sh"
+echo "🪜 Applying one-leg staged curriculum V3"
+bash "$ROOT/scripts/apply-one-leg-curriculum-v3.sh"
 
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
