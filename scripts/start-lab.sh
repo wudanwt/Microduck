@@ -59,6 +59,9 @@ bash "$ROOT/scripts/apply-one-leg-reverse-assist-v2.sh"
 echo "🚪 Applying late-stage right-foot liftoff gate V3"
 bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v3.sh"
 
+echo "🔒 Gating late-stage COM reward on true airborne clearance"
+bash "$ROOT/scripts/apply-one-leg-airborne-com-gate.sh"
+
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
 
