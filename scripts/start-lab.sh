@@ -18,6 +18,9 @@ bash "$ROOT/scripts/apply-one-leg-stability.sh"
 echo "📏 Applying one-leg hover-height penalty"
 bash "$ROOT/scripts/apply-one-leg-height-error.sh"
 
+echo "〰️ Applying one-leg windowed oscillation penalty"
+bash "$ROOT/scripts/apply-one-leg-oscillation.sh"
+
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
 
