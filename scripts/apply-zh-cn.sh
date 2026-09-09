@@ -75,6 +75,10 @@ const localTranslations = [
     "Big points for keeping the body center of mass over the left stance foot",
     "高额奖励：身体重心投影保持在左支撑脚上方",
   ],
+  [
+    "Big points for shifting the body center of mass sideways over the left stance foot",
+    "高额奖励：身体重心横向压到左支撑脚上",
+  ],
 ];
 for (const [en, zh] of localTranslations) {
   const key = JSON.stringify(en);
