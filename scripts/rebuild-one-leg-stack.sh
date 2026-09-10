@@ -18,10 +18,8 @@ if ! git -C "$LAB" ls-files --error-unmatch "$POSES_REL" >/dev/null 2>&1; then
 fi
 
 echo "🧱 Rebuilding one-leg stack from the pinned microduck-lab baseline"
-# This resets ONLY the source file owned by our one-leg patch stack. It does not
-# touch runs/, lab-state.json, exported policies, viewer state, or any training
-# artifacts. Starting from the pinned submodule copy makes every launch
-# deterministic instead of layering patches on yesterday's already-patched file.
+# Reset ONLY the one source file owned by our one-leg patch stack. Training
+# runs, lab-state.json and exported policies are untouched.
 git -C "$LAB" checkout -- "$POSES_REL"
 
 if [ ! -f "$POSES" ]; then
@@ -54,13 +52,10 @@ echo "  8/9 reverse-assist V3"
 bash "$ROOT/scripts/apply-one-leg-reverse-assist-v3.sh"
 
 echo "  9/9 late-stage liftoff + airborne COM gates"
-bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v3.sh"
+bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v4.sh"
 bash "$ROOT/scripts/apply-one-leg-airborne-com-gate.sh"
 
-# One final canonical verification after ALL writers have finished. This is the
-# check that matters: the module must import, the final RewardTerm bindings must
-# point at functions that actually exist, and there must be exactly one copy of
-# the critical helpers.
+# Final canonical verification after ALL writers have finished.
 (
   cd "$LOCAL"
   uv run python - <<'PY'
@@ -117,11 +112,12 @@ for fn in (
 
 print("✓ final one-leg stack import/binding verification passed")
 print("  one canonical poses.py rebuilt from pinned baseline")
-print("  6 curriculum stages; reverse-assist V3; liftoff gate; airborne COM gate")
+print("  6 curriculum stages; reverse-assist V3; liftoff V4; airborne COM gate")
 PY
 )
 
-# Print a reproducibility fingerprint so two launches can be compared directly.
+# Reproducibility fingerprint: the same pinned code should produce the same hash
+# on every launch.
 if command -v shasum >/dev/null 2>&1; then
   HASH="$(shasum -a 256 "$POSES" | awk '{print $1}')"
 else
