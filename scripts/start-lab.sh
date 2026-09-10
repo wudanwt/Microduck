@@ -14,17 +14,12 @@ if [ ! -f "$REFERENCE" ]; then
 fi
 
 # IMPORTANT: repair stale source corruption before ANY helper script performs a
-# runtime import of microduck_local.behaviors. Older curriculum V2 could leave
-# `_one_leg_stage_flat_support("left")` in the RewardTerm, which makes poses.py
-# fail at import time. This preflight is pure text surgery and therefore works
-# even while the Python module is currently un-importable.
+# runtime import of microduck_local.behaviors. This also restores import-safe
+# stubs if an older reverse-assist installer deleted helpers that later
+# RewardTerms still reference; their proper installers below replace the stubs.
 echo "🩹 Preflight: repairing stale one-leg source if needed"
 bash "$ROOT/scripts/repair-one-leg-source.sh"
 
-# The curriculum patch redirects the one_leg reward functions in poses.py.
-# On later launches the old stability installer must not insist on the original
-# foot_in_air source line; if all three stability terms are already present,
-# the desired code is already installed and we can safely skip that installer.
 if [ -f "$POSES" ] \
   && grep -q '"right_foot_stable_hover"' "$POSES" \
   && grep -q '"right_foot_vertical_motion"' "$POSES" \
@@ -53,8 +48,8 @@ bash "$ROOT/scripts/apply-one-leg-unload.sh"
 echo "🪄 Applying reverse-curriculum pre-lift spawns"
 bash "$ROOT/scripts/apply-one-leg-reverse-spawn.sh"
 
-echo "🛟 Applying verified reverse-assist V2 training wheels"
-bash "$ROOT/scripts/apply-one-leg-reverse-assist-v2.sh"
+echo "🛟 Applying idempotent reverse-assist V3 training wheels"
+bash "$ROOT/scripts/apply-one-leg-reverse-assist-v3.sh"
 
 echo "🚪 Applying late-stage right-foot liftoff gate V3"
 bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v3.sh"
