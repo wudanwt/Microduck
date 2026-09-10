@@ -6,56 +6,18 @@ LOCAL="$ROOT/microduck-lab/microduck_local"
 VIEWER="$ROOT/microduck-lab/duck-viewer"
 REFERENCE="$ROOT/microduck-lab/microduck/policies/alpha_walking.onnx"
 RUN_DIR="$LOCAL/runs/$RUN_NAME"
-POSES="$LOCAL/src/microduck_local/behaviors/poses.py"
 
 if [ ! -f "$REFERENCE" ]; then
   echo "Reference policy not found. Run: bash scripts/setup-mac.sh"
   exit 1
 fi
 
-# IMPORTANT: repair stale source corruption before ANY helper script performs a
-# runtime import of microduck_local.behaviors. This also restores import-safe
-# stubs if an older reverse-assist installer deleted helpers that later
-# RewardTerms still reference; their proper installers below replace the stubs.
-echo "🩹 Preflight: repairing stale one-leg source if needed"
-bash "$ROOT/scripts/repair-one-leg-source.sh"
-
-if [ -f "$POSES" ] \
-  && grep -q '"right_foot_stable_hover"' "$POSES" \
-  && grep -q '"right_foot_vertical_motion"' "$POSES" \
-  && grep -q '"right_foot_direction_reversal"' "$POSES"; then
-  echo "🦩 One-leg stability rewards already installed; keeping curriculum-compatible functions"
-else
-  echo "🦩 Applying one-leg stability rewards"
-  bash "$ROOT/scripts/apply-one-leg-stability.sh"
-fi
-
-echo "📏 Applying one-leg hover-height penalty"
-bash "$ROOT/scripts/apply-one-leg-height-error.sh"
-
-echo "〰️ Applying one-leg windowed oscillation penalty"
-bash "$ROOT/scripts/apply-one-leg-oscillation.sh"
-
-echo "⚖️ Applying one-leg center-of-mass balance reward"
-bash "$ROOT/scripts/apply-one-leg-com-balance.sh"
-
-echo "🪜 Applying one-leg staged curriculum V3"
-bash "$ROOT/scripts/apply-one-leg-curriculum-v3.sh"
-
-echo "🦶 Applying right-foot unloading/contact-force shaping"
-bash "$ROOT/scripts/apply-one-leg-unload.sh"
-
-echo "🪄 Applying reverse-curriculum pre-lift spawns"
-bash "$ROOT/scripts/apply-one-leg-reverse-spawn.sh"
-
-echo "🛟 Applying idempotent reverse-assist V3 training wheels"
-bash "$ROOT/scripts/apply-one-leg-reverse-assist-v3.sh"
-
-echo "🚪 Applying late-stage right-foot liftoff gate V3"
-bash "$ROOT/scripts/apply-one-leg-liftoff-gate-v3.sh"
-
-echo "🔒 Gating late-stage COM reward on true airborne clearance"
-bash "$ROOT/scripts/apply-one-leg-airborne-com-gate.sh"
+# Rebuild the entire one-leg source stack from the pinned microduck-lab
+# baseline on EVERY launch. We intentionally do not layer patch scripts over an
+# already-patched poses.py anymore; that approach caused restart-order bugs.
+# Only poses.py is reset. Training runs, exported policies and lab-state.json
+# are preserved.
+bash "$ROOT/scripts/rebuild-one-leg-stack.sh"
 
 echo "🎯 Applying Teach fine-tune learning-rate control"
 bash "$ROOT/scripts/apply-finetune-lr.sh"
